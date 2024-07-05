@@ -191,7 +191,7 @@ if uploaded_base_stable and uploaded_contrats_valides:
 
             # KPI
             nb_vsc = data.shape[0]
-            stock_1er_janvier = data[(data["Annee_debut"] == "2023") | (data["Annee_vrai_fin"] == "2024")].shape[0]
+            stock_1er_janvier = data[(data["Annee_debut"] == "2023") & (data["Annee_vrai_fin"] == "2024")].shape[0]
             flux_2024 = data[data["Annee_debut"] == "2024"].shape[0]
             flux_2023 = data[data["Annee_debut"] == "2023"].shape[0]
 

@@ -1,6 +1,7 @@
 streamlit
 pandas
 polars
+plotly
 numpy
 openpyxl
 fastexcel

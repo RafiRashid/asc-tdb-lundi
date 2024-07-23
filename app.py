@@ -3,6 +3,8 @@ import pandas as pd
 import polars as pl
 import numpy as np
 from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(
     page_title="ASC - TDB Lundi",
@@ -16,7 +18,7 @@ st.set_page_config(
     }
 )
 
-# Section 1
+# CONTRATS SAISIS ------------------------------------------------------------------------------------------------------------------------------------------------
 st.title('Contrats Saisis')
 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -41,9 +43,9 @@ if uploaded_file_1 is not None:
 
     contrat_saisis = contrat_saisis.assign(
         **{col: pd.to_datetime(contrat_saisis[col], format="%d/%m/%Y", errors='coerce').dt.date for col in contrat_saisis.columns if "Date" in col},
-        Annee_vrai_fin = pd.to_datetime(contrat_saisis['Date_vrai_fin']).dt.year.astype(str),
-        Mois_debut = pd.to_datetime(contrat_saisis['CTV_DATE_DEBUT']).dt.month.astype(str),
-        Annee_debut = pd.to_datetime(contrat_saisis['CTV_DATE_DEBUT']).dt.year.astype(str)
+        Annee_vrai_fin = pd.to_datetime(contrat_saisis['Date_vrai_fin'], dayfirst=True).dt.year.astype(str),
+        Mois_debut = pd.to_datetime(contrat_saisis['CTV_DATE_DEBUT'], dayfirst=True).dt.month.astype(str),
+        Annee_debut = pd.to_datetime(contrat_saisis['CTV_DATE_DEBUT'], dayfirst=True).dt.year.astype(str)
     )
      
     with st.expander("Données transformées:"):
@@ -79,10 +81,29 @@ if uploaded_file_1 is not None:
     with col3:
         st.metric(label="Contrats saisis de septembre à décembre 2024 :", value= sept_dec)
         
+    # Graphique Plotly pour les contrats saisis par mois
+    mois_label = {1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril', 5: 'Mai', 6: 'Juin',
+                  7: 'Juillet', 8: 'Août', 9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'}
+
+    contrats_par_mois = contrat_saisis[contrat_saisis['Annee_debut'] == "2024"].groupby('Mois_debut').size().reset_index(name='count')
+    contrats_par_mois['Mois_debut'] = contrats_par_mois['Mois_debut'].astype(int)
+    contrats_par_mois = contrats_par_mois.sort_values(by='Mois_debut')
+    contrats_par_mois['Mois_debut'] = contrats_par_mois['Mois_debut'].map(mois_label)
+
+    fig = px.bar(contrats_par_mois, 
+                 x='Mois_debut', 
+                 y='count', 
+                 title="Contrats saisis par mois en 2024", 
+                 labels={'Mois_debut': 'Mois', 'count': 'Nombre de contrats saisis'}, 
+                 color_discrete_sequence=['#ADD8E6'],
+                 hover_data={'Mois_debut': False, 'count': True})
+    fig.update_traces(hovertemplate='<b>%{x}</b><br>Contrats: %{y}')
+    st.plotly_chart(fig)
+
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 
-# Section 2
+# OSCAR ---------------------------------------------------------------------------------------------------------------------------------------------------------
 st.title('OSCAR')
 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -115,8 +136,17 @@ if uploaded_file_2 is not None:
     st.header("Onglet « Taux de réalisation »")
     st.write(postes_agrees)
 
+    # Graphique Plotly pour les postes agrées par mois
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(x=postes_agrees.index, y=postes_agrees["Postes agréés au local"], name='Postes agréés au local', marker_color='#ADD8E6',hovertemplate='<b>%{x}</b><br>Postes locaux: %{y}'))
+    fig2.add_trace(go.Bar(x=postes_agrees.index, y=postes_agrees["Postes agréés au national"], name='Postes agréés au national', marker_color='#87CEFA',hovertemplate='<b>%{x}</b><br>Postes locaux: %{y}'))
+
+    fig2.update_layout(barmode='group', title="Postes agréés par mois", xaxis_title="Mois", yaxis_title="Nombre de postes agréés")
+    st.plotly_chart(fig2)
+
 st.markdown("<br><br>", unsafe_allow_html=True)
-# Section 3
+
+# CONTRATS VALIDES ------------------------------------------------------------------------------------------------------------------------------------------------
 st.title('Base volontaire')
 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -147,16 +177,16 @@ def load_base_volontaire(uploaded_base_stable, uploaded_contrats_valides):
 
     base_volontaire = base_volontaire.assign(
         **{col: pd.to_datetime(base_volontaire[col], format="%d/%m/%Y", errors='coerce').dt.date for col in base_volontaire.columns if "Date" in col},
-        Annee_vrai_fin = pd.to_datetime(base_volontaire['Date_vrai_fin']).dt.year.astype(str),
-        Mois_debut = pd.to_datetime(base_volontaire['CTV_DATE_DEBUT']).dt.month.astype(str),
-        Annee_debut = pd.to_datetime(base_volontaire['CTV_DATE_DEBUT']).dt.year.astype(str),
+        Annee_vrai_fin = pd.to_datetime(base_volontaire['Date_vrai_fin'], dayfirst=True).dt.year.astype(str),
+        Mois_debut = pd.to_datetime(base_volontaire['CTV_DATE_DEBUT'], dayfirst=True).dt.month.astype(str),
+        Annee_debut = pd.to_datetime(base_volontaire['CTV_DATE_DEBUT'], dayfirst=True).dt.year.astype(str),
         National_ou_local = np.where(base_volontaire['AGR_NUMERO'].str[:2] == "NA", "National", "Local"),
         Rupture = np.where(base_volontaire['CTV_DATE_EFFET_RUPTURE'].isna(), 0, 1)
     )
 
     return base_volontaire
 
-# Upload des fichiers
+# Upload des fichiers et calcul des KPI
 uploaded_base_stable = st.file_uploader("Choisissez le fichier Excel de la base stable", type="xlsx", key="base_stable")
 uploaded_contrats_valides = st.file_uploader("Choisissez le fichier CSV des contrats validés", type="csv", key="contrats_valides")
 
@@ -195,7 +225,7 @@ if uploaded_base_stable and uploaded_contrats_valides:
             flux_2024 = data[data["Annee_debut"] == "2024"].shape[0]
             flux_2023 = data[data["Annee_debut"] == "2023"].shape[0]
 
-            # Affichage Metrics           
+            # Affichage KPI           
             st.header("Onglet « Cadrage »")
             
             col1, col2, col3, col4 = st.columns(4)
@@ -212,4 +242,11 @@ if uploaded_base_stable and uploaded_contrats_valides:
 
             st.header("Onglet « Taux de réalisation »")
             st.write(contrats_nat_loc)
+
+            fig3 = go.Figure()
+            fig3.add_trace(go.Bar(x=contrats_nat_loc['Mois_debut'], y=contrats_nat_loc["Contrats locaux"], name='Contrats locaux', marker_color='#ADD8E6', hovertemplate='<b>%{x}</b><br>Contrats locaux: %{y}'))
+            fig3.add_trace(go.Bar(x=contrats_nat_loc['Mois_debut'], y=contrats_nat_loc["Contrats nationaux"], name='Contrats nationaux', marker_color='#87CEFA', hovertemplate='<b>%{x}</b><br>Contrats nationaux: %{y}'))
+
+            fig3.update_layout(barmode='group', title="Contrats nationaux et locaux par mois en 2024", xaxis_title="Mois", yaxis_title="Nombre de contrats")
+            st.plotly_chart(fig3)
 
